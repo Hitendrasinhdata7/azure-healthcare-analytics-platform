@@ -1,0 +1,82 @@
+// ============================================================
+// Azure Monitor / Log Analytics Queries
+// Azure Healthcare Analytics Platform
+// ============================================================
+
+// ── Pipeline Failures (last 24h) ──────────────────────────────
+AzureActivity
+| where TimeGenerated > ago(24h)
+| where OperationNameValue contains "databricks" or OperationNameValue contains "datafactory"
+| where ActivityStatusValue == "Failed"
+| project TimeGenerated, OperationNameValue, ResourceGroup, Properties
+| order by TimeGenerated desc
+
+// ── Databricks Job Run Duration ───────────────────────────────
+// Paste into Databricks Log Analytics workspace
+AzureDiagnostics
+| where Category == "jobs"
+| where OperationName == "RunEnd"
+| extend duration_min = (todatetime(endTime_t) - todatetime(startTime_t)) / 1m
+| project TimeGenerated, jobId_d, runId_d, state_s, duration_min
+| order by TimeGenerated desc
+
+// ── Data Factory Pipeline Runs ────────────────────────────────
+ADFPipelineRun
+| where TimeGenerated > ago(7d)
+| summarize
+    TotalRuns    = count(),
+    SuccessRuns  = countif(Status == "Succeeded"),
+    FailedRuns   = countif(Status == "Failed"),
+    AvgDurationMin = avg(End - Start) / 60
+  by PipelineName, bin(TimeGenerated, 1d)
+| order by TimeGenerated desc
+
+// ── Storage Account Ingestion Volume ─────────────────────────
+StorageBlobLogs
+| where TimeGenerated > ago(7d)
+| where OperationName == "PutBlob" or OperationName == "PutBlock"
+| summarize
+    TotalRequests = count(),
+    TotalBytesGB  = sum(ResponseBodySize) / 1e9
+  by AccountName, bin(TimeGenerated, 1d)
+
+// ── Data Quality Failures Alert Query ────────────────────────
+// Trigger alert when DQ failure rate exceeds threshold
+// Store DQ results in Log Analytics custom log: HealthcareDQ_CL
+HealthcareDQ_CL
+| where TimeGenerated > ago(1h)
+| where passed_b == false
+| summarize FailedChecks = count() by table_s, dimension_s
+| where FailedChecks > 0
+| project table_s, dimension_s, FailedChecks
+
+// ── Synapse SQL Pool Usage ────────────────────────────────────
+AzureMetrics
+| where ResourceProvider == "MICROSOFT.SYNAPSE"
+| where MetricName in ("DWUUsedPercent", "ConnectionsBlockedByFirewall", "MemoryUsedPercent")
+| summarize AvgValue = avg(Average) by MetricName, bin(TimeGenerated, 1h)
+| render timechart
+
+// ── Cost Tracking (Resource Consumption) ─────────────────────
+AzureActivity
+| where TimeGenerated > ago(30d)
+| where OperationNameValue contains "Microsoft.Compute"
+    or OperationNameValue contains "Microsoft.Databricks"
+    or OperationNameValue contains "Microsoft.Synapse"
+| summarize OperationCount = count() by OperationNameValue, ResourceGroup, bin(TimeGenerated, 1d)
+
+// ── End-to-End Pipeline Latency ───────────────────────────────
+// Measures time from raw file landing to Gold table update
+let ingestion = StorageBlobLogs
+    | where OperationName == "PutBlob"
+    | where AccountName contains "bronze"
+    | project IngestTime = TimeGenerated, CorrelationId;
+let gold_write = StorageBlobLogs
+    | where OperationName == "PutBlob"
+    | where AccountName contains "gold"
+    | project GoldTime = TimeGenerated, CorrelationId;
+ingestion
+| join kind=inner gold_write on CorrelationId
+| extend LatencyMinutes = (GoldTime - IngestTime) / 1m
+| summarize AvgLatency = avg(LatencyMinutes), MaxLatency = max(LatencyMinutes)
+  by bin(IngestTime, 1d)

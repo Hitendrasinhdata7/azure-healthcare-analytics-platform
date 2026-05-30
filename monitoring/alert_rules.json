@@ -1,0 +1,64 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": { "type": "string", "defaultValue": "dev" },
+    "alertEmail":  { "type": "string", "defaultValue": "data-engineering@nhs.net" },
+    "workspaceId": { "type": "string" }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "2022-06-15",
+      "name": "[concat('alert-dq-failures-', parameters('environment'))]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "displayName": "Healthcare DQ Failure Rate Alert",
+        "description": "Fires when data quality failure rate exceeds 5% in a 1-hour window",
+        "severity": 2,
+        "enabled": true,
+        "evaluationFrequency": "PT15M",
+        "windowSize": "PT1H",
+        "scopes": ["[parameters('workspaceId')]"],
+        "criteria": {
+          "allOf": [
+            {
+              "query": "HealthcareDQ_CL | where passed_b == false | summarize FailCount = count() by bin(TimeGenerated, 1h) | where FailCount > 5",
+              "timeAggregation": "Count",
+              "operator": "GreaterThanOrEqual",
+              "threshold": 1
+            }
+          ]
+        },
+        "actions": {
+          "actionGroups": []
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "2022-06-15",
+      "name": "[concat('alert-pipeline-failure-', parameters('environment'))]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "displayName": "Healthcare Pipeline Failure Alert",
+        "description": "Fires when any ADF or Databricks pipeline fails",
+        "severity": 1,
+        "enabled": true,
+        "evaluationFrequency": "PT5M",
+        "windowSize": "PT15M",
+        "scopes": ["[parameters('workspaceId')]"],
+        "criteria": {
+          "allOf": [
+            {
+              "query": "AzureActivity | where OperationNameValue contains 'databricks' or OperationNameValue contains 'datafactory' | where ActivityStatusValue == 'Failed' | summarize count() by bin(TimeGenerated, 5m) | where count_ > 0",
+              "timeAggregation": "Count",
+              "operator": "GreaterThanOrEqual",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

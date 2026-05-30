@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfstate.lock.info
+terraform/terraform.tfvars
+terraform/.terraform.lock.hcl
+terraform/tfplan*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Secrets
+*.pem
+*.key
+*.secret
+secrets/
+
+# Data (generated locally — not committed)
+sample-data/*.csv
+
+# Databricks
+.databricks/
+
+# Test artifacts
+test-results/

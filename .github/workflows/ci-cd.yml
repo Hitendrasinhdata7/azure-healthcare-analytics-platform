@@ -1,0 +1,184 @@
+name: Healthcare Analytics Platform - CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, test, prod]
+
+env:
+  PYTHON_VERSION: '3.11'
+  TERRAFORM_VERSION: '1.6.6'
+  ARM_CLIENT_ID:       ${{ secrets.ARM_CLIENT_ID }}
+  ARM_CLIENT_SECRET:   ${{ secrets.ARM_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID:       ${{ secrets.ARM_TENANT_ID }}
+
+jobs:
+  # ── 1. Lint & Unit Tests ──────────────────────────────────────
+  test:
+    name: Lint & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-dev.txt
+
+      - name: Lint with flake8
+        run: flake8 databricks/ tests/ --max-line-length=120 --exclude=__pycache__
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v --tb=short --junitxml=test-results/unit.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: test-results/
+
+  # ── 2. Terraform Validate ─────────────────────────────────────
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend=false
+
+      - name: Terraform Format Check
+        working-directory: terraform
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+
+  # ── 3. Deploy Dev ─────────────────────────────────────────────
+  deploy-dev:
+    name: Deploy to Dev
+    needs: [test, terraform-validate]
+    runs-on: ubuntu-latest
+    environment: dev
+    if: github.ref == 'refs/heads/develop' || github.event.inputs.environment == 'dev'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init (Dev)
+        working-directory: terraform
+        run: |
+          terraform init \
+            -backend-config="key=dev.healthcare.tfstate"
+
+      - name: Terraform Plan (Dev)
+        working-directory: terraform
+        run: |
+          terraform plan \
+            -var="environment=dev" \
+            -var="subscription_id=${{ secrets.ARM_SUBSCRIPTION_ID }}" \
+            -var="tenant_id=${{ secrets.ARM_TENANT_ID }}" \
+            -var="synapse_sql_password=${{ secrets.SYNAPSE_SQL_PASSWORD }}" \
+            -out=tfplan-dev
+
+      - name: Terraform Apply (Dev)
+        working-directory: terraform
+        run: terraform apply -auto-approve tfplan-dev
+
+      - name: Deploy Databricks Notebooks
+        run: |
+          pip install databricks-cli
+          databricks configure --token <<EOF
+          ${{ secrets.DATABRICKS_HOST_DEV }}
+          ${{ secrets.DATABRICKS_TOKEN_DEV }}
+          EOF
+          databricks workspace import_dir databricks/notebooks /Shared/healthcare --overwrite
+
+  # ── 4. Deploy Test ────────────────────────────────────────────
+  deploy-test:
+    name: Deploy to Test
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    environment: test
+    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'test'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init (Test)
+        working-directory: terraform
+        run: terraform init -backend-config="key=test.healthcare.tfstate"
+
+      - name: Terraform Apply (Test)
+        working-directory: terraform
+        run: |
+          terraform apply -auto-approve \
+            -var="environment=test" \
+            -var="subscription_id=${{ secrets.ARM_SUBSCRIPTION_ID }}" \
+            -var="tenant_id=${{ secrets.ARM_TENANT_ID }}" \
+            -var="synapse_sql_password=${{ secrets.SYNAPSE_SQL_PASSWORD }}"
+
+  # ── 5. Deploy Prod ────────────────────────────────────────────
+  deploy-prod:
+    name: Deploy to Prod
+    needs: deploy-test
+    runs-on: ubuntu-latest
+    environment: prod
+    if: github.event.inputs.environment == 'prod'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init (Prod)
+        working-directory: terraform
+        run: terraform init -backend-config="key=prod.healthcare.tfstate"
+
+      - name: Terraform Plan (Prod) — manual review
+        working-directory: terraform
+        run: |
+          terraform plan \
+            -var="environment=prod" \
+            -var="subscription_id=${{ secrets.ARM_SUBSCRIPTION_ID }}" \
+            -var="tenant_id=${{ secrets.ARM_TENANT_ID }}" \
+            -var="synapse_sql_password=${{ secrets.SYNAPSE_SQL_PASSWORD }}" \
+            -out=tfplan-prod
+
+      - name: Terraform Apply (Prod)
+        working-directory: terraform
+        run: terraform apply tfplan-prod

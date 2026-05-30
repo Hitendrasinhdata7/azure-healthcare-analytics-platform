@@ -1,0 +1,137 @@
+{
+  "name": "pl_ingest_healthcare_bronze",
+  "properties": {
+    "description": "Ingests CSV files from raw container into Bronze Delta Lake layer",
+    "activities": [
+      {
+        "name": "ForEachDataset",
+        "type": "ForEach",
+        "typeProperties": {
+          "items": {
+            "value": "@pipeline().parameters.datasets",
+            "type": "Expression"
+          },
+          "isSequential": false,
+          "batchCount": 5,
+          "activities": [
+            {
+              "name": "CopyToBronze",
+              "type": "Copy",
+              "inputs": [
+                {
+                  "referenceName": "ds_adls_csv_source",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "container": "raw",
+                    "fileName": "@concat(item(), '.csv')"
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "referenceName": "ds_adls_parquet_sink",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "container": "bronze",
+                    "folder": "@item()"
+                  }
+                }
+              ],
+              "typeProperties": {
+                "source": {
+                  "type": "DelimitedTextSource",
+                  "storeSettings": { "type": "AzureBlobFSReadSettings" },
+                  "formatSettings": {
+                    "type": "DelimitedTextReadSettings",
+                    "firstRowAsHeader": true
+                  }
+                },
+                "sink": {
+                  "type": "ParquetSink",
+                  "storeSettings": { "type": "AzureBlobFSWriteSettings" }
+                },
+                "enableStaging": false,
+                "translator": { "type": "TabularTranslator", "typeConversion": true }
+              }
+            },
+            {
+              "name": "AddMetadata",
+              "type": "DatabricksNotebook",
+              "dependsOn": [{ "activity": "CopyToBronze", "dependencyConditions": ["Succeeded"] }],
+              "typeProperties": {
+                "notebookPath": "/Shared/healthcare/add_bronze_metadata",
+                "baseParameters": {
+                  "dataset":     "@item()",
+                  "pipeline_run_id": "@pipeline().RunId",
+                  "ingestion_ts": "@utcNow()"
+                }
+              },
+              "linkedServiceName": {
+                "referenceName": "ls_databricks",
+                "type": "LinkedServiceReference"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "TriggerBronzeToSilver",
+        "type": "DatabricksNotebook",
+        "dependsOn": [{ "activity": "ForEachDataset", "dependencyConditions": ["Succeeded"] }],
+        "typeProperties": {
+          "notebookPath": "/Shared/healthcare/bronze_to_silver",
+          "baseParameters": {
+            "pipeline_run_id": "@pipeline().RunId",
+            "storage_account": "@pipeline().parameters.storage_account"
+          }
+        },
+        "linkedServiceName": {
+          "referenceName": "ls_databricks",
+          "type": "LinkedServiceReference"
+        }
+      },
+      {
+        "name": "TriggerSilverToGold",
+        "type": "DatabricksNotebook",
+        "dependsOn": [{ "activity": "TriggerBronzeToSilver", "dependencyConditions": ["Succeeded"] }],
+        "typeProperties": {
+          "notebookPath": "/Shared/healthcare/silver_to_gold",
+          "baseParameters": {
+            "pipeline_run_id": "@pipeline().RunId",
+            "storage_account": "@pipeline().parameters.storage_account"
+          }
+        },
+        "linkedServiceName": {
+          "referenceName": "ls_databricks",
+          "type": "LinkedServiceReference"
+        }
+      },
+      {
+        "name": "RunDataQuality",
+        "type": "DatabricksNotebook",
+        "dependsOn": [{ "activity": "TriggerSilverToGold", "dependencyConditions": ["Succeeded"] }],
+        "typeProperties": {
+          "notebookPath": "/Shared/healthcare/data_quality",
+          "baseParameters": {
+            "pipeline_run_id": "@pipeline().RunId"
+          }
+        },
+        "linkedServiceName": {
+          "referenceName": "ls_databricks",
+          "type": "LinkedServiceReference"
+        }
+      }
+    ],
+    "parameters": {
+      "datasets": {
+        "type": "array",
+        "defaultValue": ["patients","appointments","imaging","procedures","referrals"]
+      },
+      "storage_account": {
+        "type": "string",
+        "defaultValue": "adlshealthcaredev"
+      }
+    },
+    "annotations": ["healthcare", "bronze", "medallion"]
+  }
+}

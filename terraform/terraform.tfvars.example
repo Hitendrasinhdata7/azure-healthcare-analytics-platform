@@ -1,0 +1,16 @@
+# ============================================================
+# terraform.tfvars.example
+# Copy to terraform.tfvars and fill in your values.
+# NEVER commit terraform.tfvars to Git.
+# ============================================================
+
+subscription_id      = "00000000-0000-0000-0000-000000000000"
+tenant_id            = "00000000-0000-0000-0000-000000000000"
+environment          = "dev"
+location             = "uksouth"
+owner                = "data-engineering-team"
+cost_centre          = "NHS-DIGITAL-001"
+databricks_sku       = "premium"
+synapse_sql_admin    = "sqladmin"
+synapse_sql_password = "ChangeMe123!"
+allowed_ip_ranges    = ["YOUR_OFFICE_IP/32"]

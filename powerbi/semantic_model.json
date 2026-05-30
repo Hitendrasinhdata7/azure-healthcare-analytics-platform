@@ -1,0 +1,138 @@
+{
+  "name": "Healthcare Analytics Semantic Model",
+  "description": "Power BI semantic model for the Azure Healthcare Analytics Platform",
+  "compatibilityLevel": 1550,
+  "model": {
+    "tables": [
+      {
+        "name": "FactPatientActivity",
+        "partitions": [
+          {
+            "name": "FactPatientActivity",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": "let Source = Sql.Database(\"synw-healthcare-prod.sql.azuresynapse.net\", \"HealthcareAnalytics\"), dbo_FactPatientActivity = Source{[Schema=\"dbo\",Item=\"FactPatientActivity\"]}[Data] in dbo_FactPatientActivity"
+            }
+          }
+        ],
+        "measures": [
+          {
+            "name": "Total Appointments",
+            "expression": "CALCULATE(COUNTROWS(FactPatientActivity), FactPatientActivity[ActivityType] = \"APPOINTMENT\")",
+            "formatString": "#,0"
+          },
+          {
+            "name": "Attendance Rate %",
+            "expression": "DIVIDE(CALCULATE(COUNTROWS(FactPatientActivity), FactPatientActivity[ActivityType] = \"APPOINTMENT\", FactPatientActivity[Status] = \"Attended\"), [Total Appointments], 0) * 100",
+            "formatString": "0.0%"
+          },
+          {
+            "name": "DNA Rate %",
+            "expression": "DIVIDE(CALCULATE(COUNTROWS(FactPatientActivity), FactPatientActivity[ActivityType] = \"APPOINTMENT\", FactPatientActivity[Status] = \"Dna\"), [Total Appointments], 0) * 100",
+            "formatString": "0.0%"
+          },
+          {
+            "name": "Total Referrals",
+            "expression": "CALCULATE(COUNTROWS(FactPatientActivity), FactPatientActivity[ActivityType] = \"REFERRAL\")",
+            "formatString": "#,0"
+          },
+          {
+            "name": "Total Scans",
+            "expression": "CALCULATE(COUNTROWS(FactPatientActivity), FactPatientActivity[ActivityType] = \"IMAGING\")",
+            "formatString": "#,0"
+          },
+          {
+            "name": "Total Procedure Cost",
+            "expression": "CALCULATE(SUM(FactPatientActivity[Cost]), FactPatientActivity[ActivityType] = \"PROCEDURE\")",
+            "formatString": "£#,0.00"
+          },
+          {
+            "name": "Avg Procedure Cost",
+            "expression": "CALCULATE(AVERAGEX(FILTER(FactPatientActivity, FactPatientActivity[ActivityType] = \"PROCEDURE\"), FactPatientActivity[Cost]))",
+            "formatString": "£#,0.00"
+          },
+          {
+            "name": "Appointments 3M Rolling Avg",
+            "expression": "CALCULATE([Total Appointments], DATESINPERIOD(DimDate[DateKey], LASTDATE(DimDate[DateKey]), -3, MONTH)) / 3",
+            "formatString": "#,0"
+          },
+          {
+            "name": "Appointments YoY Change %",
+            "expression": "VAR CurrentYear = [Total Appointments] VAR PriorYear = CALCULATE([Total Appointments], DATEADD(DimDate[DateKey], -1, YEAR)) RETURN DIVIDE(CurrentYear - PriorYear, PriorYear, 0) * 100",
+            "formatString": "+0.0%;-0.0%;0.0%"
+          }
+        ]
+      },
+      {
+        "name": "DimPatient",
+        "partitions": [
+          {
+            "name": "DimPatient",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": "let Source = Sql.Database(\"synw-healthcare-prod.sql.azuresynapse.net\", \"HealthcareAnalytics\"), dbo_DimPatient = Source{[Schema=\"dbo\",Item=\"DimPatient\"]}[Data] in dbo_DimPatient"
+            }
+          }
+        ],
+        "measures": [
+          {
+            "name": "Total Patients",
+            "expression": "DISTINCTCOUNT(DimPatient[PatientId])",
+            "formatString": "#,0"
+          }
+        ]
+      },
+      {
+        "name": "DimDepartment",
+        "partitions": [
+          {
+            "name": "DimDepartment",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": "let Source = Sql.Database(\"synw-healthcare-prod.sql.azuresynapse.net\", \"HealthcareAnalytics\"), dbo_DimDepartment = Source{[Schema=\"dbo\",Item=\"DimDepartment\"]}[Data] in dbo_DimDepartment"
+            }
+          }
+        ]
+      },
+      {
+        "name": "DimDate",
+        "partitions": [
+          {
+            "name": "DimDate",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": "let Source = Sql.Database(\"synw-healthcare-prod.sql.azuresynapse.net\", \"HealthcareAnalytics\"), dbo_DimDate = Source{[Schema=\"dbo\",Item=\"DimDate\"]}[Data] in dbo_DimDate"
+            }
+          }
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "name": "Fact_Patient",
+        "fromTable": "FactPatientActivity",
+        "fromColumn": "PatientKey",
+        "toTable": "DimPatient",
+        "toColumn": "PatientKey"
+      },
+      {
+        "name": "Fact_Department",
+        "fromTable": "FactPatientActivity",
+        "fromColumn": "DepartmentKey",
+        "toTable": "DimDepartment",
+        "toColumn": "DepartmentKey"
+      },
+      {
+        "name": "Fact_Date",
+        "fromTable": "FactPatientActivity",
+        "fromColumn": "DateKey",
+        "toTable": "DimDate",
+        "toColumn": "DateKey"
+      }
+    ]
+  }
+}

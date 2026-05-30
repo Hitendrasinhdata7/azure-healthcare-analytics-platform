@@ -1,0 +1,123 @@
+{
+  "clusters": [
+    {
+      "cluster_name": "healthcare-batch-job-cluster",
+      "spark_version": "14.3.x-scala2.12",
+      "node_type_id": "Standard_D8s_v3",
+      "driver_node_type_id": "Standard_D4s_v3",
+      "autoscale": {
+        "min_workers": 2,
+        "max_workers": 8
+      },
+      "auto_termination_minutes": 10,
+      "spark_conf": {
+        "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
+        "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog",
+        "spark.databricks.delta.optimizeWrite.enabled": "true",
+        "spark.databricks.delta.autoCompact.enabled": "true",
+        "spark.sql.shuffle.partitions": "auto",
+        "spark.databricks.cluster.profile": "singleNode"
+      },
+      "azure_attributes": {
+        "availability": "SPOT_WITH_FALLBACK_AZURE",
+        "spot_bid_max_price": -1
+      },
+      "libraries": [
+        { "pypi": { "package": "azure-identity==1.16.0" } },
+        { "pypi": { "package": "azure-keyvault-secrets==4.8.0" } },
+        { "pypi": { "package": "delta-spark==3.1.0" } }
+      ],
+      "init_scripts": [],
+      "data_security_mode": "SINGLE_USER",
+      "runtime_engine": "PHOTON"
+    },
+    {
+      "cluster_name": "healthcare-interactive-cluster",
+      "spark_version": "14.3.x-scala2.12",
+      "node_type_id": "Standard_D4s_v3",
+      "num_workers": 2,
+      "auto_termination_minutes": 30,
+      "spark_conf": {
+        "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
+        "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+      },
+      "azure_attributes": {
+        "availability": "ON_DEMAND_AZURE"
+      },
+      "data_security_mode": "USER_ISOLATION"
+    }
+  ],
+  "jobs": [
+    {
+      "name": "healthcare-bronze-to-silver",
+      "tasks": [
+        {
+          "task_key": "bronze_to_silver",
+          "notebook_task": {
+            "notebook_path": "/Shared/healthcare/bronze_to_silver",
+            "base_parameters": {
+              "storage_account": "{{storage_account}}"
+            }
+          },
+          "new_cluster": {
+            "spark_version": "14.3.x-scala2.12",
+            "node_type_id": "Standard_D8s_v3",
+            "autoscale": { "min_workers": 2, "max_workers": 8 },
+            "azure_attributes": { "availability": "SPOT_WITH_FALLBACK_AZURE" }
+          },
+          "timeout_seconds": 3600
+        }
+      ],
+      "schedule": {
+        "quartz_cron_expression": "0 0 2 * * ?",
+        "timezone_id": "Europe/London",
+        "pause_status": "UNPAUSED"
+      },
+      "max_concurrent_runs": 1,
+      "email_notifications": {
+        "on_failure": ["data-engineering@nhs.net"]
+      }
+    },
+    {
+      "name": "healthcare-silver-to-gold",
+      "tasks": [
+        {
+          "task_key": "silver_to_gold",
+          "notebook_task": {
+            "notebook_path": "/Shared/healthcare/silver_to_gold",
+            "base_parameters": {
+              "storage_account": "{{storage_account}}"
+            }
+          },
+          "depends_on": [],
+          "new_cluster": {
+            "spark_version": "14.3.x-scala2.12",
+            "node_type_id": "Standard_D8s_v3",
+            "autoscale": { "min_workers": 2, "max_workers": 6 },
+            "azure_attributes": { "availability": "SPOT_WITH_FALLBACK_AZURE" }
+          },
+          "timeout_seconds": 3600
+        },
+        {
+          "task_key": "data_quality",
+          "depends_on": [{ "task_key": "silver_to_gold" }],
+          "notebook_task": {
+            "notebook_path": "/Shared/healthcare/data_quality"
+          },
+          "new_cluster": {
+            "spark_version": "14.3.x-scala2.12",
+            "node_type_id": "Standard_D4s_v3",
+            "num_workers": 2,
+            "azure_attributes": { "availability": "SPOT_WITH_FALLBACK_AZURE" }
+          },
+          "timeout_seconds": 1800
+        }
+      ],
+      "schedule": {
+        "quartz_cron_expression": "0 0 4 * * ?",
+        "timezone_id": "Europe/London",
+        "pause_status": "UNPAUSED"
+      }
+    }
+  ]
+}
