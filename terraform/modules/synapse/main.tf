@@ -10,16 +10,6 @@ resource "azurerm_synapse_workspace" "main" {
     type = "SystemAssigned"
   }
 
-  azure_devops_repo {
-    account_name    = ""
-    branch_name     = "main"
-    last_commit_id  = ""
-    project_name    = ""
-    repository_name = ""
-    root_folder     = "/"
-    tenant_id       = ""
-  }
-
   tags = var.tags
 }
 
@@ -28,8 +18,6 @@ resource "azurerm_synapse_sql_pool" "main" {
   synapse_workspace_id = azurerm_synapse_workspace.main.id
   sku_name             = var.environment == "prod" ? "DW200c" : "DW100c"
   create_mode          = "Default"
-  auto_pause_enabled   = true
-  auto_pause_delay_in_minutes = 15
   tags                 = var.tags
 }
 
@@ -40,18 +28,18 @@ resource "azurerm_synapse_firewall_rule" "azure_services" {
   end_ip_address       = "0.0.0.0"
 }
 
-output "workspace_name"    { value = azurerm_synapse_workspace.main.name }
-output "workspace_id"      { value = azurerm_synapse_workspace.main.id }
-output "sql_pool_name"     { value = azurerm_synapse_sql_pool.main.name }
-output "managed_identity"  { value = azurerm_synapse_workspace.main.identity[0].principal_id }
+output "workspace_name"   { value = azurerm_synapse_workspace.main.name }
+output "workspace_id"     { value = azurerm_synapse_workspace.main.id }
+output "sql_pool_name"    { value = azurerm_synapse_sql_pool.main.name }
+output "managed_identity" { value = azurerm_synapse_workspace.main.identity[0].principal_id }
 
 variable "resource_group_name" {}
-variable "location" {}
-variable "project_name" {}
-variable "environment" {}
-variable "storage_account_id" {}
-variable "data_lake_filesystem" {}
-variable "keyvault_id" {}
-variable "sql_admin_login"    { default = "sqladmin" }
-variable "sql_admin_password" { sensitive = true }
-variable "tags" { default = {} }
+variable "location"            {}
+variable "project_name"        {}
+variable "environment"         {}
+variable "storage_account_id"  {}
+variable "data_lake_filesystem"{}
+variable "keyvault_id"         {}
+variable "sql_admin_login"     { default = "sqladmin" }
+variable "sql_admin_password"  { sensitive = true; default = "ChangeMe123!" }
+variable "tags"                { default = {} }

@@ -34,14 +34,12 @@ provider "databricks" {
   azure_workspace_resource_id = module.databricks.workspace_id
 }
 
-# ── Resource Group ────────────────────────────────────────────
 resource "azurerm_resource_group" "main" {
   name     = "rg-${var.project_name}-${var.environment}"
   location = var.location
   tags     = local.tags
 }
 
-# ── Modules ───────────────────────────────────────────────────
 module "storage" {
   source              = "./modules/storage"
   resource_group_name = azurerm_resource_group.main.name
@@ -91,6 +89,7 @@ module "synapse" {
   storage_account_id    = module.storage.storage_account_id
   data_lake_filesystem  = module.storage.gold_filesystem_id
   keyvault_id           = module.keyvault.keyvault_id
+  sql_admin_password    = var.synapse_sql_password
   tags                  = local.tags
 }
 
@@ -103,7 +102,6 @@ module "monitoring" {
   tags                = local.tags
 }
 
-# ── Locals ────────────────────────────────────────────────────
 locals {
   tags = {
     Project     = var.project_name
