@@ -3,7 +3,7 @@
 > **Enterprise-grade Azure Data Engineering platform for NHS hospital analytics.**  
 > Ingests healthcare data, processes it through Medallion Architecture (Bronze → Silver → Gold), applies data quality rules, stores data in Delta Lake, serves analytics through Azure Synapse, and visualises KPIs in Power BI.
 
-[![CI/CD](https://github.com/your-org/azure-healthcare-analytics/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/your-org/azure-healthcare-analytics/actions)
+[![CI/CD](https://github.com/Hitendrasinhdata7/azure-healthcare-analytics-platform/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/your-org/azure-healthcare-analytics/actions)
 [![Terraform](https://img.shields.io/badge/Terraform-1.6+-purple)](https://www.terraform.io)
 [![Python](https://img.shields.io/badge/Python-3.11-blue)](https://www.python.org)
 [![PySpark](https://img.shields.io/badge/PySpark-3.5-orange)](https://spark.apache.org)
@@ -512,5 +512,5 @@ See [docs/disaster_recovery.md](docs/disaster_recovery.md).
 
 ---
 
-*Built by a Senior Azure Data Engineer to demonstrate production-grade data platform design patterns.*  
+*Built by Hitendrasinh — Senior Azure Data Engineer portfolio project.*  
 *No real patient data is used. All datasets are fully synthetic.*
