@@ -1,0 +1,14 @@
+prometheus:
+  prometheusSpec:
+    replicas: 2
+    retention: 30d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          resources:
+            requests:
+              storage: 100Gi
+    serviceMonitorSelectorNilUsesHelmValues: false  # auto-discover all ServiceMonitors cluster-wide
+  ruleSelectorNilUsesHelmValues: false
+alertmanager:
+  enabled: false   # managed separately below for clarity in this repo

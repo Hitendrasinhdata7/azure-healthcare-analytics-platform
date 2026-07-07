@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: production
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Production project - strict RBAC, manual sync approval required
+  sourceRepos:
+    - 'https://github.com/org/gitops-platform-engineering.git'
+  destinations:
+    - namespace: 'prod-*'
+      server: https://prod-cluster.internal
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  roles:
+    - name: sre-oncall
+      policies:
+        - p, proj:production:sre-oncall, applications, sync, production/*, allow
+        - p, proj:production:sre-oncall, applications, override, production/*, deny
+      groups:
+        - org:sre-team
+  syncWindows:
+    - kind: allow
+      schedule: '0 9-17 * * 1-5'
+      duration: 8h
+      applications:
+        - '*'
+      manualSync: true

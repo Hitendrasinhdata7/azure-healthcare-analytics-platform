@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-apps
+  namespace: argocd
+spec:
+  project: dev
+  source:
+    repoURL: https://github.com/org/gitops-platform-engineering.git
+    targetRevision: main
+    path: apps/sample-service/overlays/dev
+  destination:
+    server: https://dev-cluster.internal
+    namespace: dev-sample-service
+  syncPolicy:
+    automated:
+      prune: true      # auto-delete resources removed from Git
+      selfHeal: true    # auto-revert manual/out-of-band changes
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

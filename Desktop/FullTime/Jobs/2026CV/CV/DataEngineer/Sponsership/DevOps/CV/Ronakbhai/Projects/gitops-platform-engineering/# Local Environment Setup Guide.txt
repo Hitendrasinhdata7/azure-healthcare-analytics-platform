@@ -1,0 +1,129 @@
+# Local Environment Setup Guide
+
+## Step 1: Verify Helm Installation
+
+First, check whether Helm is installed:
+
+```powershell
+helm version
+```
+
+If the command is still loading, press **Enter** and wait for it to complete. If you receive a **"not recognized"** error, install Helm using:
+
+```powershell
+winget install Helm.Helm
+```
+
+---
+
+## Step 2: Install Kind
+
+Install Kind if it is not already available:
+
+```powershell
+winget install Kubernetes.kind
+```
+
+After installation, close and reopen your terminal, then verify the installation:
+
+```powershell
+kind --version
+```
+
+---
+
+## Step 3: Open Git Bash
+
+The bootstrap script is a `.sh` file and cannot be run directly from PowerShell. Use **Git Bash** instead.
+
+If Git is not installed, install it first:
+
+```powershell
+winget install Git.Git
+```
+
+In VS Code:
+
+1. Open the Terminal panel.
+2. Click the dropdown arrow next to the **+** icon.
+3. Select **Git Bash**.
+
+---
+
+## Step 4: Navigate to the Project Directory
+
+In Git Bash, run:
+
+```bash
+cd "/c/Users/User/Desktop/FullTime/Jobs/2026CV/CV/DataEngineer/Sponsership/DevOps/CV/Ronakbhai/Projects/gitops-platform-engineering"
+```
+
+---
+
+## Step 5: Start Docker Desktop
+
+Ensure Docker Desktop is installed, running, and fully initialized before continuing.
+
+---
+
+## Step 6: Run the Bootstrap Script
+
+Make the script executable and start the environment setup:
+
+```bash
+chmod +x scripts/bootstrap-local.sh
+./scripts/bootstrap-local.sh
+```
+
+Wait for the script to complete successfully before proceeding.
+
+---
+
+## Step 7: Retrieve the ArgoCD Admin Password
+
+Run the following command to obtain the initial admin password:
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
+```
+
+Copy the password for use in the next step.
+
+---
+
+## Step 8: Access ArgoCD
+
+Open your browser and navigate to:
+
+```
+https://localhost:8081
+```
+
+Log in using:
+
+* **Username:** `admin`
+* **Password:** The password retrieved in Step 7
+
+After logging in, verify that all applications show a status of **Synced** and **Healthy**.
+
+---
+
+## Step 9: (Optional) Test Drift Detection
+
+Scale the sample deployment down to zero replicas:
+
+```bash
+kubectl -n dev-sample-service scale deploy dev-sample-service --replicas=0
+```
+
+Monitor the ArgoCD UI and confirm that it automatically detects the drift and restores the deployment to the desired state.
+
+---
+
+## Step 10: Tear Down the Environment
+
+When you are finished, clean up the local environment:
+
+```bash
+./scripts/teardown-local.sh
+```

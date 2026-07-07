@@ -1,0 +1,22 @@
+alertmanager:
+  config:
+    route:
+      receiver: slack-default
+      group_by: ["alertname", "namespace"]
+      routes:
+        - matchers: [severity="critical"]
+          receiver: pagerduty
+        - matchers: [alertname="ArgoCDAppOutOfSync"]
+          receiver: slack-gitops-drift
+    receivers:
+      - name: slack-default
+        slack_configs:
+          - channel: "#platform-alerts"
+      - name: slack-gitops-drift
+        slack_configs:
+          - channel: "#gitops-drift"
+      - name: pagerduty
+        pagerduty_configs:
+          - service_key: "<REDACTED - injected via Vault>"
+  alertmanagerSpec:
+    replicas: 3

@@ -1,0 +1,20 @@
+# HashiCorp Vault - HA mode with Raft integrated storage (no external Consul dependency)
+server:
+  ha:
+    enabled: true
+    replicas: 3
+    raft:
+      enabled: true
+      setNodeId: true
+  auditStorage:
+    enabled: true
+    size: 10Gi
+  dataStorage:
+    size: 20Gi
+  extraEnvironmentVars:
+    VAULT_CACLERT: /vault/userconfig/tls-ca/ca.crt
+injector:
+  enabled: true
+  replicas: 2
+ui:
+  enabled: true

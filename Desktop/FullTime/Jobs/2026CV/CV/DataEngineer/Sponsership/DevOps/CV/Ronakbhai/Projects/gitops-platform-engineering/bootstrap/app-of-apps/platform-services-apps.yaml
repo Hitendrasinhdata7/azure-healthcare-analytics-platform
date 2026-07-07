@@ -1,0 +1,21 @@
+# Platform services (Vault, ESO, cert-manager, ingress, observability)
+# are themselves deployed via ArgoCD - "GitOps all the way down".
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-services
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/org/gitops-platform-engineering.git
+    targetRevision: main
+    path: platform-services
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

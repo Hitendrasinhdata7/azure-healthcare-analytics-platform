@@ -1,0 +1,28 @@
+# Helm values for the ArgoCD chart itself (self-managed via GitOps after bootstrap)
+server:
+  replicas: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    tls: true
+repoServer:
+  replicas: 2
+applicationSet:
+  enabled: true
+redis-ha:
+  enabled: true          # HA Redis backing store, avoids single point of failure
+controller:
+  replicas: 1            # application-controller is sharded, not horizontally scaled naively
+configs:
+  cm:
+    timeout.reconciliation: 180s
+    application.resourceTrackingMethod: annotation
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      p, role:admin, applications, *, */*, allow
+      g, org:platform-team, role:admin

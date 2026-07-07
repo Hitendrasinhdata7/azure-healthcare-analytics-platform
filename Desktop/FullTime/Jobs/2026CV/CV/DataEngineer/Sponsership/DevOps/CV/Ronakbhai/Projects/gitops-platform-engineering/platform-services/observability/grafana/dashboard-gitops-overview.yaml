@@ -1,0 +1,20 @@
+# Grafana dashboard-as-code: sync status, deploy frequency, drift events,
+# per-environment health - loaded automatically by the sidecar above.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitops-overview-dashboard
+  labels:
+    grafana_dashboard: "true"
+data:
+  gitops-overview.json: |
+    {
+      "title": "GitOps Platform Overview",
+      "panels": [
+        { "title": "ArgoCD Sync Status by App", "type": "stat" },
+        { "title": "Drift Events (last 24h)", "type": "timeseries" },
+        { "title": "Deployment Frequency", "type": "barchart" },
+        { "title": "Mean Time to Sync (reconciliation latency)", "type": "gauge" },
+        { "title": "Pod Restarts by Namespace", "type": "timeseries" }
+      ]
+    }

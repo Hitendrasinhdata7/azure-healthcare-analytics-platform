@@ -1,0 +1,15 @@
+# ArgoCD Notifications: pushes sync/health events to Slack for visibility
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  service.slack: |
+    token: $slack-token
+  trigger.on-sync-failed: |
+    - when: app.status.operationState.phase in ['Error', 'Failed']
+      send: [slack-notify]
+  trigger.on-deployed: |
+    - when: app.status.sync.status == 'Synced' and app.status.health.status == 'Healthy'
+      send: [slack-notify]

@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: dev
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Development environment project - relaxed policies for fast iteration
+  sourceRepos:
+    - 'https://github.com/org/gitops-platform-engineering.git'
+  destinations:
+    - namespace: 'dev-*'
+      server: https://dev-cluster.internal
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  roles:
+    - name: dev-team
+      description: Full access for developers in dev
+      policies:
+        - p, proj:dev:dev-team, applications, *, dev/*, allow
+      groups:
+        - org:platform-dev-team

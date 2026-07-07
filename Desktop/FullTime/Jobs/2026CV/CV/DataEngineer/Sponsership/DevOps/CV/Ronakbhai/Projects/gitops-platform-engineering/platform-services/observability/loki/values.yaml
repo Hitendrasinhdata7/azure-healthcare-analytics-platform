@@ -1,0 +1,18 @@
+loki:
+  auth_enabled: false
+  storage:
+    type: s3
+    s3:
+      region: us-east-1
+      bucketNames:
+        chunks: gitops-platform-loki-chunks
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: s3
+        schema: v13
+write:
+  replicas: 3
+read:
+  replicas: 3

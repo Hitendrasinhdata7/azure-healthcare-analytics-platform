@@ -1,0 +1,25 @@
+# App of Apps: single entrypoint ArgoCD reconciles.
+# This is the ONLY Application manually applied during bootstrap.
+# It then owns every other Application manifest declaratively.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-app
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/org/gitops-platform-engineering.git
+    targetRevision: main
+    path: bootstrap/app-of-apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

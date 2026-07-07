@@ -1,0 +1,38 @@
+# Promotion to prod: same PR-based pattern as staging, but requires
+# CODEOWNERS approval (SRE team) + passing staging soak-time verification
+# gate, and uses a signed, semver-tagged (not SHA-tagged) image.
+name: Promote - Staging to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Semver-tagged, signed image verified in staging (e.g. 1.0.0)"
+        required: true
+
+jobs:
+  verify-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify image signature (cosign)
+        run: cosign verify ghcr.io/org/sample-service:${{ inputs.image_tag }} --certificate-identity-regexp '.*' --certificate-oidc-issuer https://token.actions.githubusercontent.com
+      - name: Verify staging soak time (>=24h healthy)
+        run: ./scripts/verify-soak-time.sh staging ${{ inputs.image_tag }}
+
+  open-promotion-pr:
+    needs: verify-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          cd apps/sample-service/overlays/prod
+          kustomize edit set image ghcr.io/org/sample-service=ghcr.io/org/sample-service:${{ inputs.image_tag }}
+      - name: Open PR requiring CODEOWNERS (SRE) approval
+        uses: peter-evans/create-pull-request@v6
+        with:
+          title: "PRODUCTION: Promote ${{ inputs.image_tag }}"
+          branch: promote/prod-${{ inputs.image_tag }}
+          reviewers: sre-team
+      # Merge triggers ArgoCD manual-sync workflow (prod Application has
+      # no automated sync policy - a human/pipeline must click sync or
+      # the CD job below calls `argocd app sync` post-merge).

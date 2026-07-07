@@ -1,0 +1,4 @@
+# Production overlays and Vault config require SRE sign-off.
+/apps/sample-service/overlays/prod/  @org/sre-team
+/platform-services/vault/            @org/security-team
+/infrastructure/terraform/           @org/platform-team

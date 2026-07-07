@@ -1,0 +1,60 @@
+# CI Pipeline: runs on every PR. Nothing here touches Git manifests -
+# CI's only job is to produce a trusted, scanned, signed artifact.
+name: CI - Build, Scan, Sign
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write   # required for keyless Sigstore/cosign signing
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint Kustomize manifests
+        run: |
+          kubectl kustomize apps/sample-service/overlays/dev > /dev/null
+          kubectl kustomize apps/sample-service/overlays/staging > /dev/null
+          kubectl kustomize apps/sample-service/overlays/prod > /dev/null
+      - name: Validate against kubeconform
+        run: kubeconform -strict -summary <(kubectl kustomize apps/sample-service/overlays/prod)
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan IaC (checkov)
+        run: checkov -d infrastructure/terraform --compact
+      - name: Scan Kubernetes manifests (kubesec)
+        run: kubesec scan apps/sample-service/base/deployment.yaml
+
+  build-and-test:
+    needs: [lint, security-scan]
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests
+        run: make test
+      - id: meta
+        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - name: Build image
+        run: docker build -t ghcr.io/org/sample-service:${{ steps.meta.outputs.tag }} .
+      - name: Scan image for vulnerabilities (Trivy)
+        run: trivy image --exit-code 1 --severity CRITICAL,HIGH ghcr.io/org/sample-service:${{ steps.meta.outputs.tag }}
+      - name: Generate SBOM (Syft)
+        run: syft ghcr.io/org/sample-service:${{ steps.meta.outputs.tag }} -o cyclonedx-json > sbom.json
+      - name: Push image
+        run: docker push ghcr.io/org/sample-service:${{ steps.meta.outputs.tag }}
+      - name: Sign image (cosign, keyless/OIDC)
+        run: cosign sign --yes ghcr.io/org/sample-service:${{ steps.meta.outputs.tag }}
+      - name: Attach SBOM attestation
+        run: cosign attest --yes --predicate sbom.json --type cyclonedx ghcr.io/org/sample-service:${{ steps.meta.outputs.tag }}
+      - uses: actions/upload-artifact@v4
+        with: { name: sbom, path: sbom.json }

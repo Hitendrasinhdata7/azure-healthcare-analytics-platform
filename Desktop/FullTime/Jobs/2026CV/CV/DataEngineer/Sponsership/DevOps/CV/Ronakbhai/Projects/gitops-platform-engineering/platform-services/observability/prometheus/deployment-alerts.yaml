@@ -1,0 +1,27 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: deployment-alerts
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: deployments
+      rules:
+        - alert: DeploymentReplicasMismatch
+          expr: kube_deployment_spec_replicas != kube_deployment_status_replicas_available
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Deployment {{ $labels.deployment }} has not reached desired replica count"
+        - alert: HighPodRestartRate
+          expr: rate(kube_pod_container_status_restarts_total[15m]) > 0.3
+          for: 10m
+          labels:
+            severity: warning
+        - alert: NodeMemoryPressure
+          expr: kube_node_status_condition{condition="MemoryPressure",status="true"} == 1
+          for: 5m
+          labels:
+            severity: critical

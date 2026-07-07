@@ -1,0 +1,22 @@
+# Production intentionally omits `automated:` sync.
+# Promotion to prod is a deliberate, audited action (manual sync or
+# merge-triggered sync via CD pipeline) — never silently automatic.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prod-apps
+  namespace: argocd
+spec:
+  project: production
+  source:
+    repoURL: https://github.com/org/gitops-platform-engineering.git
+    targetRevision: main
+    path: apps/sample-service/overlays/prod
+  destination:
+    server: https://prod-cluster.internal
+    namespace: prod-sample-service
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3

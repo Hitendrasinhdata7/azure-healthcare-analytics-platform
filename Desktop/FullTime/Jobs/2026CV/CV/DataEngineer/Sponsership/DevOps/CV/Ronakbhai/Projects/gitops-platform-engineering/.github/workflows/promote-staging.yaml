@@ -1,0 +1,26 @@
+# Promotion to staging: manually triggered PR that bumps the staging overlay's
+# image tag to a known-good SHA from dev. This is "PR-based promotion" -
+# every environment transition leaves a reviewable, auditable diff in Git.
+name: Promote - Dev to Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Verified image tag/SHA to promote from dev"
+        required: true
+
+jobs:
+  open-promotion-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          cd apps/sample-service/overlays/staging
+          kustomize edit set image ghcr.io/org/sample-service=ghcr.io/org/sample-service:${{ inputs.image_tag }}
+      - name: Open PR for review
+        uses: peter-evans/create-pull-request@v6
+        with:
+          title: "Promote ${{ inputs.image_tag }} to staging"
+          branch: promote/staging-${{ inputs.image_tag }}
+          reviewers: release-managers

@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: staging
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Staging environment project - production-like, pre-release validation
+  sourceRepos:
+    - 'https://github.com/org/gitops-platform-engineering.git'
+  destinations:
+    - namespace: 'staging-*'
+      server: https://staging-cluster.internal
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  roles:
+    - name: release-managers
+      policies:
+        - p, proj:staging:release-managers, applications, sync, staging/*, allow
+      groups:
+        - org:release-managers

@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: staging-apps
+  namespace: argocd
+spec:
+  project: staging
+  source:
+    repoURL: https://github.com/org/gitops-platform-engineering.git
+    targetRevision: main
+    path: apps/sample-service/overlays/staging
+  destination:
+    server: https://staging-cluster.internal
+    namespace: staging-sample-service
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

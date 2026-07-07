@@ -1,0 +1,15 @@
+# Enables Vault's Kubernetes auth method so workloads authenticate using their
+# ServiceAccount token instead of static credentials (documentation of the
+# `vault` CLI commands run once via a post-install Job / CI step).
+#
+# vault auth enable kubernetes
+# vault write auth/kubernetes/config \
+#     kubernetes_host="https://kubernetes.default.svc" \
+#     kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
+#     token_reviewer_jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-k8s-auth-setup-reference
+data:
+  note: "See comment header - executed once via bootstrap Job, not applied as-is"

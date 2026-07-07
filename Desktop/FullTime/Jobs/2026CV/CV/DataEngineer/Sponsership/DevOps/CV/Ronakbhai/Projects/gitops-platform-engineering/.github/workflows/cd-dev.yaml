@@ -1,0 +1,28 @@
+# CD to dev: fully automatic. Merge to main -> image tag bumped in dev
+# overlay -> ArgoCD auto-syncs (self-heal + auto-prune already enabled
+# on the dev-apps Application). No manual gate - dev is a fast-feedback loop.
+name: CD - Promote to Dev
+
+on:
+  workflow_run:
+    workflows: ["CI - Build, Scan, Sign"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  update-dev-image:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { token: "${{ secrets.GITOPS_PAT }}" }
+      - name: Bump image tag via Kustomize
+        run: |
+          cd apps/sample-service/overlays/dev
+          kustomize edit set image ghcr.io/org/sample-service=ghcr.io/org/sample-service:${{ github.event.workflow_run.head_sha }}
+      - name: Commit and push (GitOps commit, triggers ArgoCD sync)
+        run: |
+          git config user.name "gitops-bot"
+          git config user.email "gitops-bot@org.com"
+          git commit -am "chore(dev): deploy ${{ github.event.workflow_run.head_sha }}"
+          git push

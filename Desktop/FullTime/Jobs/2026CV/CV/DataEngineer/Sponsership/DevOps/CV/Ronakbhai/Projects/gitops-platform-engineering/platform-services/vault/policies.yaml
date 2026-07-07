@@ -1,0 +1,19 @@
+# Example Vault ACL policy (HCL) granting sample-service read-only access
+# to its own secret path only - least privilege.
+#
+# path "secret/data/sample-service/*" {
+#   capabilities = ["read"]
+# }
+#
+# vault policy write sample-service-policy policy.hcl
+# vault write auth/kubernetes/role/sample-service \
+#     bound_service_account_names=sample-service \
+#     bound_service_account_namespaces=prod-sample-service \
+#     policies=sample-service-policy \
+#     ttl=1h
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-policy-reference
+data:
+  note: "Policy definitions tracked as HCL in vault/policies/*.hcl in a real repo"

@@ -1,0 +1,19 @@
+adminUser: admin
+persistence:
+  enabled: true
+  size: 10Gi
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard   # auto-load any ConfigMap with this label as a dashboard
+datasources:
+  datasourcesConfig:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-operated.observability.svc:9090
+        isDefault: true
+      - name: Loki
+        type: loki
+        url: http://loki.observability.svc:3100
